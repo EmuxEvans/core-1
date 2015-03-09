@@ -24,11 +24,15 @@ namespace OCA\Encryption\Hooks;
 
 use OCA\Encryption\Hooks\Contracts\IHook;
 use OCA\Encryption\KeyManager;
+use OCA\Encryption\Migrator;
 use OCA\Encryption\RequirementsChecker;
+use OCA\Encryption\Users\Setup;
 use OCP\App;
 use OCP\ILogger;
+use OCP\IUserSession;
 use OCP\Template;
 use OCP\Util;
+use Test\User;
 
 class UserHooks implements IHook {
 	/**
@@ -36,26 +40,39 @@ class UserHooks implements IHook {
 	 */
 	private $keyManager;
 	/**
-	 * @var RequirementsChecker
-	 */
-	private $requirementsChecker;
-	/**
 	 * @var ILogger
 	 */
 	private $logger;
+	/**
+	 * @var Setup
+	 */
+	private $userSetup;
+	/**
+	 * @var Migrator
+	 */
+	private $migrator;
+	/**
+	 * @var IUserSession
+	 */
+	private $user;
 
 	/**
 	 * UserHooks constructor.
 	 *
 	 * @param KeyManager $keyManager
-	 * @param RequirementsChecker $requirementsChecker
 	 * @param ILogger $logger
+	 * @param Setup $userSetup
+	 * @param Migrator $migrator
+	 * @param IUserSession $user
 	 */
-	public function __construct(KeyManager $keyManager, RequirementsChecker $requirementsChecker, ILogger $logger) {
+	public function __construct(
+		KeyManager $keyManager, ILogger $logger, Setup $userSetup, Migrator $migrator, IUserSession $user) {
 
 		$this->keyManager = $keyManager;
-		$this->requirementsChecker = $requirementsChecker;
 		$this->logger = $logger;
+		$this->userSetup = $userSetup;
+		$this->migrator = $migrator;
+		$this->user = $user;
 	}
 
 	/**
@@ -84,47 +101,28 @@ class UserHooks implements IHook {
 			return true;
 		}
 
-
-		$l = new \OC_L10N('encryption');
-
-		$view = new \OC\Files\View('/');
-
 		// ensure filesystem is loaded
+		// Todo: update?
 		if (!\OC\Files\Filesystem::$loaded) {
 			\OC_Util::setupFS($params['uid']);
 		}
-		$privateKey = $this->keyManager->getPrivateKey($params['uid']);
-
-		// if no private key exists, check server configuration
-		if (!$privateKey) {
-			//check if all requirements are met
-			if (!$this->requirementsChecker->checkExtensions() || !$this->requirementsChecker->checkConfiguration()) {
-				$error_msg = $l->t("Missing requirements.");
-				$hint = $l->t('Please make sure that OpenSSL together with the PHP extension is enabled and configured properly. For now, the encryption app has been disabled.');
-				\OC_App::disable('encryption');
-				$this->logger->error('Encryption Library' . $error_msg . ' ' . $hint);
-				Template::printErrorPage($error_msg, $hint);
-			}
-		}
-
-		$util = new Util($view, $params['uid']);
 
 		// setup user, if user not ready force relogin
-		if (Helper::setupUser($util, $params['password']) === false) {
+		if (!$this->userSetup->setupUser($params['password'])) {
 			return false;
 		}
 
-		$session = $util->initEncryption($params);
+		$cache = $this->keyManager->init();
 
 		// Check if first-run file migration has already been performed
 		$ready = false;
-		$migrationStatus = $util->getMigrationStatus();
-		if ($migrationStatus === Util::MIGRATION_OPEN && $session !== false) {
-			$ready = $util->beginMigration();
-		} elseif ($migrationStatus === Util::MIGRATION_IN_PROGRESS) {
+		$migrationStatus = $this->migrator->getStatus($params['uid']);
+		if ($migrationStatus === Migrator::$migrationOpen && $cache !== false) {
+			$ready = $this->migrator->beginMigration();
+		} elseif ($migrationStatus === Migrator::$migrationInProgress) {
 			// refuse login as long as the initial encryption is running
 			sleep(5);
-			\OCP\User::logout();
+			$this->user->logout();
 			return false;
 		}
 

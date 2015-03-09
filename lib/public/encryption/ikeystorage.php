@@ -84,4 +84,10 @@ interface IKeyStorage {
 	 */
 	public function setSystemUserKey($keyId, $key);
 
+	/**
+	 * Return if encryption is setup and ready encrypt things
+	 *
+	 * @return bool
+	 */
+	public function ready();
 }

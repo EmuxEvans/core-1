@@ -186,4 +186,31 @@ class KeyManager {
 		return false;
 	}
 
+	/**
+	 * @return bool
+	 */
+	public function ready() {
+		return $this->keyStorage->ready();
+	}
+
+
+	/**
+	 * @return \OCP\ICache
+	 * @throws PrivateKeyMissingException
+	 */
+	public function init() {
+		try {
+			$privateKey = $this->getPrivateKey($this->keyId);
+		} catch (PrivateKeyMissingException $e) {
+			return false;
+		}
+
+		$cache = \OC::$server->getMemCacheFactory();
+
+		$cacheInstance = $cache->create('Encryption');
+		$cacheInstance->set('privateKey', $privateKey);
+
+		return $cacheInstance;
+	}
+
 }
