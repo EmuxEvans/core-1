@@ -228,4 +228,23 @@ class KeyStorage implements \OCP\Encryption\IKeyStorage {
 		}
 	}
 
+	/**
+	 * Check if encryption system is ready to begin encrypting
+	 * all the things
+	 *
+	 * @return bool
+	 */
+	public function ready() {
+		$paths = [
+			self::$encryption_base_dir,
+			self::$keys_base_dir
+		];
+		foreach ($paths as $path) {
+			if (!$this->view->file_exists($path)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 }

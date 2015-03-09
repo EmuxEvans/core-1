@@ -19,7 +19,7 @@
  *
  */
 
-namespace OCA\Encryption;
+namespace OCA\Encryption\Crypto;
 
 
 use OC\Encryption\Exceptions\DecryptionFailedException;
@@ -108,7 +108,7 @@ class Crypt {
 	/**
 	 * @return resource
 	 */
-	private function getOpenSSLPKey() {
+	public function getOpenSSLPKey() {
 		$config = $this->getOpenSSLConfig();
 		return openssl_pkey_new($config);
 	}

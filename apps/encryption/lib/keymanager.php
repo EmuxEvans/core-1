@@ -24,10 +24,10 @@ namespace OCA\Encryption;
 
 use OC\Encryption\Exceptions\PrivateKeyMissingException;
 use OC\Encryption\Exceptions\PublicKeyMissingException;
+use OCA\Encryption\Crypto\Crypt;
 use OCP\Encryption\IKeyStorage;
 use OCP\IConfig;
 use OCP\IUser;
-use OCP\IUserSession;
 
 class KeyManager {
 
@@ -61,6 +61,10 @@ class KeyManager {
 	 * @var string
 	 */
 	private $privateKeyId = '.private';
+	/**
+	 * @var IConfig
+	 */
+	private $config;
 
 	/**
 	 * @param IKeyStorage $keyStorage
@@ -72,9 +76,11 @@ class KeyManager {
 
 		$this->keyStorage = $keyStorage;
 		$this->crypt = $crypt;
-		$this->recoveryKeyId = $config->getAppValue('encryption', 'recoveryKeyId');
-		$this->publicShareKeyId = $config->getAppValue('encryption', 'publicShareKeyId');
+		$this->config = $config;
+		$this->recoveryKeyId = $this->config->getAppValue('encryption', 'recoveryKeyId');
+		$this->publicShareKeyId = $this->config->getAppValue('encryption', 'publicShareKeyId');
 		$this->keyId = $userID->getUID();
+
 	}
 
 	/**
@@ -113,6 +119,22 @@ class KeyManager {
 	}
 
 	/**
+	 * @param $userId
+	 * @return bool
+	 */
+	public function userHasKeys($userId) {
+		try {
+			$this->getPrivateKey($userId);
+			$this->getPublicKey($userId);
+		} catch (PrivateKeyMissingException $e) {
+			return false;
+		} catch (PublicKeyMissingException $e) {
+			return false;
+		}
+		return true;
+	}
+
+	/**
 	 * @param $password
 	 * @return bool
 	 */
@@ -142,6 +164,26 @@ class KeyManager {
 	 */
 	public function setPrivateKey($userId, $key) {
 		return $this->keyStorage->setUserKey($userId, $this->privateKeyId, $key);
+	}
+
+
+	/**
+	 * @param $password
+	 * @param $keyPair
+	 * @return bool
+	 */
+	public function storeKeyPair($password, $keyPair) {
+		// Save Public Key
+		$this->setPublicKey($this->keyId, $keyPair['publicKey']);
+
+		$encryptedKey = $this->crypt->symmetricEncryptFileContent($keyPair['privateKey'], $password);
+
+		if ($encryptedKey) {
+			$this->setPrivateKey($this->keyId, $encryptedKey);
+			$this->config->setAppValue('encryption', 'recoveryAdminEnabled', 1);
+			return true;
+		}
+		return false;
 	}
 
 }

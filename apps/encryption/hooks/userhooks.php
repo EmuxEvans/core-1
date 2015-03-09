@@ -23,10 +23,40 @@ namespace OCA\Encryption\Hooks;
 
 
 use OCA\Encryption\Hooks\Contracts\IHook;
+use OCA\Encryption\KeyManager;
+use OCA\Encryption\RequirementsChecker;
 use OCP\App;
+use OCP\ILogger;
+use OCP\Template;
 use OCP\Util;
 
 class UserHooks implements IHook {
+	/**
+	 * @var KeyManager
+	 */
+	private $keyManager;
+	/**
+	 * @var RequirementsChecker
+	 */
+	private $requirementsChecker;
+	/**
+	 * @var ILogger
+	 */
+	private $logger;
+
+	/**
+	 * UserHooks constructor.
+	 *
+	 * @param KeyManager $keyManager
+	 * @param RequirementsChecker $requirementsChecker
+	 * @param ILogger $logger
+	 */
+	public function __construct(KeyManager $keyManager, RequirementsChecker $requirementsChecker, ILogger $logger) {
+
+		$this->keyManager = $keyManager;
+		$this->requirementsChecker = $requirementsChecker;
+		$this->logger = $logger;
+	}
 
 	/**
 	 * Connects Hooks
@@ -55,7 +85,7 @@ class UserHooks implements IHook {
 		}
 
 
-		$l = new \OC_L10N('files_encryption');
+		$l = new \OC_L10N('encryption');
 
 		$view = new \OC\Files\View('/');
 
@@ -63,18 +93,17 @@ class UserHooks implements IHook {
 		if (!\OC\Files\Filesystem::$loaded) {
 			\OC_Util::setupFS($params['uid']);
 		}
-
-		$privateKey = Keymanager::getPrivateKey($view, $params['uid']);
+		$privateKey = $this->keyManager->getPrivateKey($params['uid']);
 
 		// if no private key exists, check server configuration
 		if (!$privateKey) {
 			//check if all requirements are met
-			if (!Helper::checkRequirements() || !Helper::checkConfiguration()) {
+			if (!$this->requirementsChecker->checkExtensions() || !$this->requirementsChecker->checkConfiguration()) {
 				$error_msg = $l->t("Missing requirements.");
 				$hint = $l->t('Please make sure that OpenSSL together with the PHP extension is enabled and configured properly. For now, the encryption app has been disabled.');
-				\OC_App::disable('files_encryption');
-				\OCP\Util::writeLog('Encryption library', $error_msg . ' ' . $hint, \OCP\Util::ERROR);
-				\OCP\Template::printErrorPage($error_msg, $hint);
+				\OC_App::disable('encryption');
+				$this->logger->error('Encryption Library' . $error_msg . ' ' . $hint);
+				Template::printErrorPage($error_msg, $hint);
 			}
 		}
 

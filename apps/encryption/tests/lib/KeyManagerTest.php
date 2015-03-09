@@ -30,14 +30,16 @@ class KeyManagerTest extends TestCase {
 	public function setUp() {
 		parent::setUp();
 		$keyStorageMock = $this->getMock('OCP\Encryption\IKeyStorage');
-		$cryptMock = $this->getMock('OCA\Encryption\Crypt', [], [$this->getMock('OCP\ILogger'), $this->getMock('OCP\IUser'), $this->getMock('OCP\IConfig')]);
+		$cryptMock = $this->getMockBuilder('OCA\Encryption\Crypt')
+			->disableOriginalConstructor()
+			->getMock();
 		$configMock = $this->getMock('OCP\IConfig');
-		$userSessionMock = $this->getMock('OCP\IUser');
-		$userSessionMock->expects($this->once())
+		$userMock = $this->getMock('OCP\IUser');
+		$userMock->expects($this->once())
 			->method('getUID')
 			->will($this->returnValue('admin'));
 		$this->userId = 'admin';
-		$this->instance = new KeyManager($keyStorageMock, $cryptMock, $configMock, $userSessionMock);
+		$this->instance = new KeyManager($keyStorageMock, $cryptMock, $configMock, $userMock);
 
 		$this->dummyKeys = ['public' => 'randomweakpublickeyhere',
 			'private' => 'randomweakprivatekeyhere'];
@@ -78,6 +80,10 @@ class KeyManagerTest extends TestCase {
 
 	public function testSetPrivateKey() {
 		$this->assertTrue($this->instance->setPrivateKey($this->userId, $this->dummyKeys['private']));
+	}
+
+	public function testUserHasKeys() {
+		$this->assertFalse($this->instance->userHasKeys($this->userId));
 	}
 
 

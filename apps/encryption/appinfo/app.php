@@ -21,7 +21,7 @@
 
 use OC\Files\View;
 use OCA\Encryption\AppInfo\Encryption;
-use OCA\Encryption\Crypt;
+use OCA\Encryption\Crypto\Crypt;
 use OCA\Encryption\HookManager;
 use OCA\Encryption\Hooks\AppHooks;
 use OCA\Encryption\Hooks\FileSystemHooks;

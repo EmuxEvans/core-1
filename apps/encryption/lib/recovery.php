@@ -23,6 +23,7 @@ namespace OCA\Encryption;
 
 
 use OC\Files\View;
+use OCA\Encryption\Crypto\Crypt;
 use OCP\Encryption\IKeyStorage;
 use OCP\IConfig;
 use OCP\IUser;
@@ -93,21 +94,10 @@ class Recovery {
 
 		$keyManager = $this->keyManager;
 
-		$keyStorage = $this->keyStorage;
-
 		if (!$keyManager->recoveryKeyExists()) {
 			$keyPair = $this->crypt->createKeyPair();
 
-			// Save Public Key
-			$keyManager->setPublicKey($this->user->getUID(), $keyPair['publicKey']);
-			$keyStorage->setUserKey($this->user->getUID(), '.public', $keyPair['publicKey']);
-
-			$encryptedKey = $this->crypt->symmetricEncryptFileContent($keyPair['privateKey'], $password);
-			if ($encryptedKey) {
-				$keyStorage->setUserKey($this->user->getUID(), $recoveryKeyId, $encryptedKey);
-				$appConfig->setAppValue('encryption', 'recoveryAdminEnabled', 1);
-				return true;
-			}
+			return $this->keyManager->storeKeyPair($password, $keyPair);
 		}
 
 		if ($keyManager->checkRecoveryPassword($password)) {
